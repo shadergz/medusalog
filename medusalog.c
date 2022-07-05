@@ -49,6 +49,8 @@ typedef struct
     /* Reusable buffer */
     char *newfmt;
 
+    pthread_attr_t thread_attr;
+
 } medusalog_t;
 
 typedef enum 
@@ -96,7 +98,7 @@ medusalog_t* medusa_new(medusaattr_t *user_attr, const char **logfilenames, size
         {
             char *save = strtok_r(NULL, "/", &bak);
             if (save == NULL)
-                /* We're arive at end of the string */
+                /* We're arived at end of the string */
                 break;
 
             struct stat statbuf;
@@ -108,15 +110,18 @@ medusalog_t* medusa_new(medusaattr_t *user_attr, const char **logfilenames, size
             pathtree = save;
         }
 
-        /* Create and open all specified files */
+        /* Creating and opening all specified files */
         FILE *ptr = fopen(*logfilenames++, "a");
         assert(ptr);
         *out++ = ptr;
     }
 
-    /* Initialize the mutex resource */
+    /* Initializing the mutex resource */
     pthread_mutex_init(&medusa->release_mutex, NULL);
+    
     pthread_mutex_init(&medusa->mutex, NULL);
+
+    pthread_attr_init(&medusa->thread_attr);
 
     return medusa;
 }
@@ -154,13 +159,15 @@ bool medusa_destroy(medusalog_t *medusa)
     medusa_finish(medusa);
 
     pthread_mutex_lock(&medusa->mutex);
-    /* Put the lock in a invalid state to continue */
+    /* Putting the lock in a invalid state to continue */
     pthread_mutex_lock(&medusa->release_mutex);
     /* Never unlocks the mutex */
 
     free(medusa->outfiles);
 
     free(medusa->newfmt);
+
+    pthread_attr_destroy(&medusa->thread_attr);
 
     pthread_mutex_destroy(&medusa->release_mutex);
     pthread_mutex_destroy(&medusa->mutex);
@@ -191,7 +198,7 @@ void* medusa_thread_produce(void *thread_data)
     medusalog_t *medusa = medusa_data->medusa;
     medusaattr_t *attr = &medusa->attr;
 
-    struct timespec req = {.tv_sec = 0, .tv_nsec = medusa_data->sleep_for * 1e+6};
+    struct timespec req = {.tv_sec = medusa_data->sleep_for / 1e+3 /*, .tv_nsec = medusa_data->sleep_for * 1e+6 */};
 
     /* Going sleep, I need to do this right now either ;) */
     nanosleep(&req, NULL);
@@ -217,6 +224,8 @@ void* medusa_thread_produce(void *thread_data)
 
     pthread_mutex_unlock(&medusa->release_mutex);
     pthread_mutex_unlock(&medusa->mutex);
+
+    pthread_exit(NULL);
 
     return NULL;
 }
@@ -268,7 +277,7 @@ int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa,
 
     time(&rawtime);
 
-    rawtime += milliseconds;
+    rawtime += (milliseconds / 1000);
 
     timeinfo = localtime(&rawtime);
 
@@ -290,7 +299,7 @@ int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa,
         attr->printprogram == true ?  auxbuffer : ""
     );
 
-    snprintf(auxbuffer, sizeof(auxbuffer), "\'%s\' - ", strstr(stack_strings[3], "("));
+    snprintf(auxbuffer, sizeof(auxbuffer), "\'%s\' - ", strstr(stack_strings[symbol_count - 2], "("));
     snprintf(strstr(medusa->newfmt, "?"), maxlen, "%s?",
         attr->printdebug == true ? auxbuffer : ""
     );
@@ -300,7 +309,7 @@ int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa,
         attr->printdate == true ? auxbuffer  : ""
     );
 
-    snprintf(auxbuffer, sizeof(auxbuffer), "(%s): ", str_typebuffer);
+    snprintf(auxbuffer, sizeof(auxbuffer), "(%18s): ", str_typebuffer);
     snprintf(strstr(medusa->newfmt, "?"), maxlen, "%s?",
         attr->printtype == true ? auxbuffer : ""
     );
@@ -339,6 +348,8 @@ int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa,
     medusa_data->logthread = pthread_self();
 
     pthread_mutex_unlock(&medusa->mutex);
+    
+    pthread_attr_setdetachstate(&medusa->thread_attr, PTHREAD_CREATE_DETACHED);
 
     pthread_create(&thread, NULL, medusa_thread_produce, (void*)medusa_data);
 
@@ -413,7 +424,9 @@ int main()
 
     medusa_log(ERROR, main_log, "Error message");
 
-    medusa_log_await(120, DEBUG, main_log, "Final message, the log system will be destroyed\n");
+    medusa_log(INFO, main_log, "Sleeping for 1 second...");
+
+    medusa_log_await(1000, DEBUG, main_log, "Final message, the log system will be destroyed");
 
     medusa_destroy(main_log);
 

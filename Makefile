@@ -4,7 +4,7 @@ medusalog64: medusalog64.cpp
 	clang++ -pthread -o $@ $^
 
 medusalog: medusalog.c
-	clang -pthread -O2 -g -rdynamic -o $@ $^ -fsanitize=address
+	clang -pthread -O2 -g -rdynamic -o $@ $^
 
 clean:
 	rm -f medusalog64 medusalog logfile*
