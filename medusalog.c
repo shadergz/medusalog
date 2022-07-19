@@ -61,7 +61,10 @@ typedef enum
 medusalog_t* medusa_new(medusaattr_t *user_attr, const char **logfilenames, size_t logcount)
 {
     medusalog_t *medusa = (medusalog_t*)calloc(sizeof(medusalog_t), 1);
+    
     assert(medusa);
+
+    assert(user_attr && *logfilenames);
 
     medusa->outfiles = (const FILE **)calloc(sizeof(const FILE*), logcount + 1);
     assert(medusa->outfiles);
@@ -73,7 +76,7 @@ medusalog_t* medusa_new(medusaattr_t *user_attr, const char **logfilenames, size
         memcpy(attr, user_attr, sizeof(medusaattr_t));
     } else
     {
-        attr->program = "Medusa LogSystem";
+        attr->program = "Medusa Log System";
         attr->maxfmt = 150;
         attr->maxmsg = 200;
     }
@@ -122,6 +125,8 @@ medusalog_t* medusa_new(medusaattr_t *user_attr, const char **logfilenames, size
     pthread_mutex_init(&medusa->mutex, NULL);
 
     pthread_attr_init(&medusa->thread_attr);
+
+    pthread_attr_setdetachstate(&medusa->thread_attr, PTHREAD_CREATE_DETACHED);
 
     return medusa;
 }
@@ -349,9 +354,7 @@ int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa,
 
     pthread_mutex_unlock(&medusa->mutex);
     
-    pthread_attr_setdetachstate(&medusa->thread_attr, PTHREAD_CREATE_DETACHED);
-
-    pthread_create(&thread, NULL, medusa_thread_produce, (void*)medusa_data);
+    pthread_create(&thread, &medusa->thread_attr, medusa_thread_produce, (void*)medusa_data);
 
     return ret;
 }
@@ -361,7 +364,7 @@ int medusa_log_await(size_t milliseconds, medusa_log_type_t type, medusalog_t *m
     va_list va_format;
     va_start(va_format, fmt);
 
-    int ret = medusa_do(milliseconds, type, medusa, fmt, va_format);
+    const int ret = medusa_do(milliseconds, type, medusa, fmt, va_format);
 
     va_end(va_format);
 
@@ -416,9 +419,9 @@ int main()
     
     medusa_log(INFO, main_log, "Main function is located at %p", main);
 
-    medusa_log_await(100, SUCCESS, main_log, "Everything is ok"); 
+    medusa_log_await(3000, DEBUG, main_log, "Final message, the log system will be destroyed");
 
-    medusa_log_await(20, INFO, main_log, "Hmmm this will be printed before the success message"); 
+    medusa_log_await(2000, INFO, main_log, "Hmmm this will be printed before the success message"); 
 
     medusa_log(WARNING, main_log, "I will print a error message, but don't worry, isn't a real error :)");
 
@@ -426,7 +429,7 @@ int main()
 
     medusa_log(INFO, main_log, "Sleeping for 1 second...");
 
-    medusa_log_await(1000, DEBUG, main_log, "Final message, the log system will be destroyed");
+    medusa_log_await(1000, SUCCESS, main_log, "Everything is ok"); 
 
     medusa_destroy(main_log);
 
