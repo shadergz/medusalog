@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 
@@ -15,7 +14,6 @@
 
 #include <string.h>
 
-#include <fcntl.h>
 #include <errno.h>
 #include <sys/stat.h>
 
@@ -94,14 +92,14 @@ medusalog_t* medusa_new(medusaattr_t *user_attr, const char **logfilenames, size
 
         char *pathtree;
 
-        /* strtok_r writes and corrut the address, we need to copy the file path to other location */
+        /* strtok_r writes and corrupt the address, we need to copy the file path to other location */
         pathtree = strtok_r(pathbuffer, "/", &bak);
 
         for (; pathtree ;)
         {
             char *save = strtok_r(NULL, "/", &bak);
             if (save == NULL)
-                /* We're arived at end of the string */
+                /* We're arrived at end of the string */
                 break;
 
             struct stat statbuf;
@@ -164,7 +162,7 @@ bool medusa_destroy(medusalog_t *medusa)
     medusa_finish(medusa);
 
     pthread_mutex_lock(&medusa->mutex);
-    /* Putting the lock in a invalid state to continue */
+    /* Putting the lock in an invalid state to continue */
     pthread_mutex_lock(&medusa->release_mutex);
     /* Never unlocks the mutex */
 
@@ -231,8 +229,6 @@ void* medusa_thread_produce(void *thread_data)
     pthread_mutex_unlock(&medusa->mutex);
 
     pthread_exit(NULL);
-
-    return NULL;
 }
 
 int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa, 
@@ -272,8 +268,6 @@ int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa,
 
     //char newfmt[attr->maxfmt];
 
-    const char *program = attr->program;
-
     char date_str[32];
 
     /* Getting the current date */
@@ -304,7 +298,7 @@ int medusa_do(size_t milliseconds, medusa_log_type_t type, medusalog_t *medusa,
         attr->printprogram == true ?  auxbuffer : ""
     );
 
-    snprintf(auxbuffer, sizeof(auxbuffer), "\'%s\' - ", strstr(stack_strings[symbol_count - 2], "("));
+    snprintf(auxbuffer, sizeof(auxbuffer), "\'%30s\' - ", strstr(stack_strings[symbol_count - 2], "("));
     snprintf(strstr(medusa->newfmt, "?"), maxlen, "%s?",
         attr->printdebug == true ? auxbuffer : ""
     );
@@ -421,7 +415,7 @@ int main()
 
     medusa_log_await(3000, DEBUG, main_log, "Final message, the log system will be destroyed");
 
-    medusa_log_await(2000, INFO, main_log, "Hmmm this will be printed before the success message"); 
+    medusa_log_await(2000, INFO, main_log, "Hmm this will be printed before the success message");
 
     medusa_log(WARNING, main_log, "I will print a error message, but don't worry, isn't a real error :)");
 
